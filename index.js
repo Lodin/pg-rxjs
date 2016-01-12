@@ -24,9 +24,15 @@ function Pool(config) {
   }
 
   this.config = config
+
+  return { 
+          connect: this._connect.bind(this),
+          query: this._query.bind(this), 
+          stream: this._stream.bind(this),
+          }
 }
 
-Pool.prototype.connect = function() {
+Pool.prototype._connect = function() {
   return Rxo.create((obs) => {
     let _done = x=>x;
     pg.connect(this.config, (error, client, done) => {
@@ -47,10 +53,10 @@ Pool.prototype.connect = function() {
   });
 }
 
-Pool.prototype.query = function() {
+Pool.prototype._query = function() {
   const args = slice.call(arguments)
 
-  return this.connect().flatMap((pool) => {
+  return this._connect().flatMap((pool) => {
     if(!pool || !pool.client) return Rxo.throw(new Error("Pool not reached"));
 
     pool.client.rxquery = pool.client.rxquery 
@@ -61,10 +67,10 @@ Pool.prototype.query = function() {
   })
 }
 
-Pool.prototype.stream = function(text, value, options) {
+Pool.prototype._stream = function(text, value, options) {
   //const stream = new Rx.Subject();
 
-  return this.connect().flatMap(pool => Rxo.create(stream => {
+  return this._connect().flatMap(pool => Rxo.create(stream => {
     const query = new QueryStream(text, value, options)
     const source = pool.client.query(query)
     source.on('end', cleanup)
@@ -115,16 +121,20 @@ function Client(config) {
   deasync.loopWhile(function(){ return !connected });
 
   this._rxquery = Rxo.fromNodeCallback(_client.query, _client);
+
+  return { query: this._query.bind(this), 
+          stream: this._stream.bind(this),
+          end: this._end.bind(this) }
 }
 
-Client.prototype.query = function() {
+Client.prototype._query = function() {
   const args = slice.call(arguments)
   const _rxquery = this._rxquery;
   
   return Rxo.defer(x => _rxquery.apply(null, args));
 }
 
-Client.prototype.stream = function(text, value, options) {
+Client.prototype._stream = function(text, value, options) {
   const stream = new Rx.Subject();
 
   const query = new QueryStream(text, value, options)
@@ -154,6 +164,6 @@ Client.prototype.stream = function(text, value, options) {
   return stream.asObservable();
 }
 
-Client.prototype.end = function() {
+Client.prototype._end = function() {
   this._client.end()
 }
