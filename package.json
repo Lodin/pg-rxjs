@@ -1,14 +1,14 @@
 {
-  "name": "pg-then",
-  "version": "1.2.1",
-  "description": "pg-then: use pg by promise",
+  "name": "pg-rxjs",
+  "version": "0.1.0",
+  "description": "pg-rxjs: use pg by rxjs",
   "main": "index.js",
   "scripts": {
-    "test": "mocha -R spec -t 5000 test/*.js",
-    "test-cov": "istanbul cover node_modules/.bin/_mocha -- -R dot -t 5000 test/*.js",
-    "test-travis": "istanbul cover node_modules/.bin/_mocha --report lcovonly -- -R dot -t 5000 test/*.js"
+    "test": "mocha --harmony -R spec -t 5000 test/*.js",
+    "test-cov": "istanbul cover node_modules/.bin/_mocha -- --harmony -R dot -t 5000 test/*.js",
+    "test-travis": "istanbul cover node_modules/.bin/_mocha --harmony --report lcovonly -- -R dot -t 5000 test/*.js"
   },
-  "repository": "coderhaoxin/pg-then",
+  "repository": "jadbox/pg-rxjs",
   "files": [
     "index.js"
   ],
@@ -19,7 +19,7 @@
     "await",
     "then"
   ],
-  "author": "haoxin",
+  "author": "jadbox",
   "license": "MIT",
   "devDependencies": {
     "istanbul": "0",
@@ -27,6 +27,7 @@
     "pg": "4"
   },
   "dependencies": {
-    "pg-query-stream": "1"
+    "pg-query-stream": "1",
+    "rx": "^4.0.7"
   }
 }

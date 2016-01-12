@@ -3,7 +3,7 @@
 
 const pg = require('../')
 
-const dbUri = 'postgres://hx@localhost/hx'
+const dbUri = 'postgres://hx:hx@localhost/hx'
 const pool = pg.Pool(dbUri)
 
 let count = 0
@@ -20,8 +20,8 @@ function runSequence(result) {
   }
 
   pool.query('SELECT COUNT(*) from pg_stat_activity')
-    .then(runSequence)
-    .catch((err) => {
+    .do(runSequence)
+    .subscribeOnError((err) => {
       console.error(err)
     })
 }

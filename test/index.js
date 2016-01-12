@@ -4,7 +4,7 @@
 const assert = require('assert')
 const pg = require('../')
 
-const config = 'postgres://hx@localhost/hx'
+const config = 'postgres://hx:hx@localhost/hx'
 
 describe('## pg-then', () => {
   describe('# Pool', () => {
@@ -12,7 +12,7 @@ describe('## pg-then', () => {
     it('invalid db uri', (done) => {
       pg.Pool('postgres://hx@localhost:3333/hx')
         .connect()
-        .catch((err) => {
+        .subscribeOnError((err) => {
           assert.ok(err.code, 'ECONNREFUSED')
           done()
         })
@@ -21,7 +21,7 @@ describe('## pg-then', () => {
     it('invalid query', (done) => {
       pg.Pool(config)
         .query('invalid sql')
-        .catch((err) => {
+        .subscribeOnError((err) => {
           assert.ok(err.message.startsWith('syntax error'))
           done()
         })
@@ -30,7 +30,7 @@ describe('## pg-then', () => {
     it('query', () => {
       return pg.Pool(config)
         .query('SELECT 1 AS count')
-        .then((result) => {
+        .subscribe((result) => {
           assert.equal(result.rowCount, 1)
           assert.equal(result.rows[0].count, 1)
         })
@@ -40,26 +40,28 @@ describe('## pg-then', () => {
       let rows = 0
       return pg.Pool(config)
         .stream('SELECT 1 AS count')
-        .on('data', data => {
+        .subscribe(
+          data => {
           rows++
           assert(rows === 1)
-        })
-        .on('end', () => done())
-        .on('error', err => done(err))
+        }, 
+        err => done(err), 
+        () => done())
     })
 
     it('stream error on non existent table', done => {
       return pg.Pool(config)
         .stream('SELECT * FROM not_a_table')
-        .on('data', () => assert.fail('there should be no data'))
-        .on('end', () => {
-          assert.fail('there should be no end')
-          done()
-        })
-        .on('error', err => {
-          assert.equal(err.message, 'relation "not_a_table" does not exist')
-          done()
-        })
+        .subscribe(
+          () => assert.fail('there should be no data'), 
+          err => {
+            assert.equal(err.message, 'relation "not_a_table" does not exist')
+            done()
+          },
+          () => {
+            assert.fail('there should be no end')
+            done()
+          })
     })
   })
 
@@ -74,7 +76,7 @@ describe('## pg-then', () => {
 
     it('invalid query', (done) => {
       client.query('invalid sql')
-        .catch((err) => {
+        .subscribeOnError((err) => {
           assert.ok(err.message.startsWith('syntax error'))
           done()
         })
@@ -82,7 +84,7 @@ describe('## pg-then', () => {
 
     it('query', () => {
       return client.query('SELECT 1 AS count')
-        .then((result) => {
+        .subscribe((result) => {
           assert.equal(result.rowCount, 1)
           assert.equal(result.rows[0].count, 1)
         })
@@ -92,12 +94,12 @@ describe('## pg-then', () => {
       let rows = 0
       return client
         .stream('SELECT 1 AS count')
-        .on('data', data => {
+        .subscribe(data => {
           rows++
           assert(rows === 1)
-        })
-        .on('end', () => done())
-        .on('error', err => done(err))
+        },
+        err => done(err),
+        () => done() )
     })
 
     it('end', () => {
