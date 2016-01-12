@@ -57,6 +57,32 @@ query('SELECT ...')
 client.end()
 ```
 
+* Transactions (\w auto-rollback)
+
+```js
+var transaction = client.transaction;
+var query = client.query;
+
+transaction([
+  // use the query method
+  query('SELECT 2 as count'), 
+
+  // or use a raw string to query
+  'SELECT 3 as count', 
+  
+  // or use a fn: x is the response of the previous query
+   x => { 
+    assert(x.rows[0].count === 3);
+    return query('SELECT $1::int as count', [x.rows[0].count+1])
+   }
+  ])
+  .subscribe(result => {
+    assert.equal(result.rowCount, 1)
+    assert.equal(result.rows[0].count, 4)
+  }, err => assert.fail('code will auto rollback'))
+
+```
+
 ### License
 MIT
 

@@ -14,22 +14,53 @@ module.exports = {
   pg
 }
 
+function _transaction(_this, queryList) {
+  // Same as Client's version
+  queryList = [].concat(queryList);
+  return Rxo.fromArray(queryList).scan((acc, x) => {
+    return acc.concatMap( prev => {
+      if(!x) return Rxo.empty();
+
+      if(typeof x === 'string') return _this._query(x);
+      else if(x.subscribe) return x;
+      else if(typeof x === 'function') {
+        const r = x(prev);
+        if(typeof r === 'string') return _this._query(r);
+        else if(r.subscribe) return r;
+        else throw new Error('Invalid transaction step type', typeof r, r)
+      }
+      else throw new Error('Invalid transaction step type', typeof x, x)
+    })
+  }, Rxo.just(null))
+  .merge(1)
+  .catch( x => {
+    console.log('Transaction error:', x);
+    return _this._query('ROLLBACK').flatMap(_=>Rxo.throw(x));
+  }).last()
+}
+
 /**
  * Pool
  */
 
-function Pool(config) {
+function Pool(config, opts) {
   if (!(this instanceof Pool)) {
-    return new Pool(config)
+    return new Pool(config, opts)
   }
 
-  this.config = config
+  this.config = config;
+  this.opts = opts || {};
 
   return { 
           connect: this._connect.bind(this),
           query: this._query.bind(this), 
           stream: this._stream.bind(this),
+          transaction: this._transaction.bind(this)
           }
+}
+
+Pool.prototype._transaction = function(x) {
+ return _transaction(this, x)
 }
 
 Pool.prototype._connect = function() {
@@ -54,7 +85,8 @@ Pool.prototype._connect = function() {
 }
 
 Pool.prototype._query = function() {
-  const args = slice.call(arguments)
+  const args = slice.call(arguments);
+  if(this.opts.debug) console.log('query:', args);
 
   return this._connect().flatMap((pool) => {
     if(!pool || !pool.client) return Rxo.throw(new Error("Pool not reached"));
@@ -71,6 +103,7 @@ Pool.prototype._stream = function(text, value, options) {
   //const stream = new Rx.Subject();
 
   return this._connect().flatMap(pool => Rxo.create(stream => {
+    if(this.opts.debug) console.log('stream:', text, value || '', options || '')
     const query = new QueryStream(text, value, options)
     const source = pool.client.query(query)
     source.on('end', cleanup)
@@ -104,9 +137,9 @@ Pool.prototype._stream = function(text, value, options) {
 /**
  * Client
  */
-function Client(config) {
+function Client(config, opts) {
   if (!(this instanceof Client)) {
-    return new Client(config)
+    return new Client(config, opts)
   }
 
   const _client = this._client = new pg.Client(config)
@@ -122,20 +155,29 @@ function Client(config) {
 
   this._rxquery = Rxo.fromNodeCallback(_client.query, _client);
 
+  this.opts = opts || {};
+
   return { query: this._query.bind(this), 
           stream: this._stream.bind(this),
-          end: this._end.bind(this) }
+          end: this._end.bind(this),
+          transaction: this._transaction.bind(this) }
+}
+
+Client.prototype._transaction = function(x) {
+ return _transaction(this, x)
 }
 
 Client.prototype._query = function() {
   const args = slice.call(arguments)
+  if(this.opts.debug) console.log('query:', args);
+
   const _rxquery = this._rxquery;
-  
   return Rxo.defer(x => _rxquery.apply(null, args));
 }
 
 Client.prototype._stream = function(text, value, options) {
   const stream = new Rx.Subject();
+  if(this.opts.debug) console.log('stream:', text, value||'', options||'')
 
   const query = new QueryStream(text, value, options)
   const source = this._client.query(query)

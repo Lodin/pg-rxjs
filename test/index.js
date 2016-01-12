@@ -28,25 +28,46 @@ describe('## pg-then', () => {
     })
 
     it('query', () => {
-      return pg.Pool(config)
+      return pg.Pool(config, {debug: true})
         .query('SELECT 1 AS count')
-        .subscribe((result) => {
+        .subscribe(result => {
           assert.equal(result.rowCount, 1)
           assert.equal(result.rows[0].count, 1)
         })
     })
 
+    it('query transaction', () => {
+      const pool = pg.Pool(config);
+      const transaction = pool.transaction, 
+            query = pool.query;
+      transaction([
+        query('SELECT 2 as count'),
+        'SELECT 3 as count',
+        x => {
+          return query('SELECT $1::int as count', [x.rows[0].count+1])
+        }
+        ])
+        .subscribe(result => {
+          assert.equal(result.rowCount, 1)
+          assert.equal(result.rows[0].count, 4)
+        }, err => assert.fail('there should be no err', err))
+    })
+
     it('stream', done => {
-      let rows = 0
-      return pg.Pool(config)
-        .stream('SELECT 1 AS count')
+      let rows = 0;
+      pg.Pool(config)
+        .stream('SELECT 9 AS count')
         .subscribe(
           data => {
-          rows++
-          assert(rows === 1)
+            rows++
+            assert(rows === 1)
+            assert(data.count === 9)
         }, 
-        err => done(err), 
-        () => done())
+        err => assert.fail('there should be no error', err),
+        () => {
+          assert(rows === 1);
+          done()
+        })
     })
 
     it('stream error on non existent table', done => {
@@ -69,7 +90,7 @@ describe('## pg-then', () => {
     let client, query;
 
     it('new client', (done) => {
-      client = pg.Client(config); // desync'ed connection
+      client = pg.Client(config, {debug: true}); // desync'ed connection
       query = client.query; // query method is bound to client
       done();
     })
@@ -82,24 +103,45 @@ describe('## pg-then', () => {
         })
     })
 
-    it('query', () => {
-      return client.query('SELECT 1 AS count')
+    it('query', (done) => {
+      client.query('SELECT 1 AS count')
         .subscribe((result) => {
           assert.equal(result.rowCount, 1)
           assert.equal(result.rows[0].count, 1)
+          done();
         })
+    })
+
+    it('query transaction', (done) => {
+      client.transaction([
+        query('SELECT 2 as count'),
+        'SELECT 3 as count',
+        x => {
+          assert(x.rows[0].count === 3);
+          return query('SELECT $1::int as count', [x.rows[0].count+1])
+        }
+        ])
+        .subscribe(result => {
+          assert.equal(result.rowCount, 1)
+          assert.equal(result.rows[0].count, 4)
+          done()
+        }, err => assert.fail('there should be no err', err))
     })
 
     it('stream', done => {
       let rows = 0
       return client
-        .stream('SELECT 1 AS count')
+        .stream('SELECT 10 AS count')
         .subscribe(data => {
           rows++
           assert(rows === 1)
+          assert(data.count === 10)
         },
-        err => done(err),
-        () => done() )
+        err => assert.fail('there should be no error', err),
+        () => {
+          assert(rows === 1);
+          done();
+        })
     })
 
     it('end', () => {
