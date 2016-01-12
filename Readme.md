@@ -46,9 +46,9 @@ pg.Pool(config)
 const pg = require('pg-rxjs')
 
 const client = pg.Client('postgres://username:password@localhost/database')
+const query = client.query; // methods are already bound to the client
 
-client
-  .query('SELECT ...')
+query('SELECT ...')
   .map(...)
   .subscribe(data => ..., end => ..., err => ...)
 
