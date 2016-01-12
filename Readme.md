@@ -57,7 +57,7 @@ query('SELECT ...')
 client.end()
 ```
 
-* Transactions (\w auto-rollback)
+* [Transactions](https://github.com/brianc/node-postgres/wiki/Transactions) (\w auto-rollback)
 
 ```js
 var transaction = client.transaction;
