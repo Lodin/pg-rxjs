@@ -9,10 +9,10 @@ const config = 'postgres://hx:hx@localhost/hx'
 describe('## pg-then', () => {
   describe('# Pool', () => {
 
-    it('invalid db uri', (done) => {
-      pg.Pool('postgres://hx@localhost:3333/hx')
+    it('invalid db uri', done => {
+      pg.Pool('postgres://notpassword:hx@localhost:3333/hx')
         .connect()
-        .subscribeOnError((err) => {
+        .subscribeOnError(err => {
           assert.ok(err.code, 'ECONNREFUSED')
           done()
         })
@@ -21,7 +21,7 @@ describe('## pg-then', () => {
     it('invalid query', (done) => {
       pg.Pool(config)
         .query('invalid sql')
-        .subscribeOnError((err) => {
+        .subscribeOnError(err => {
           assert.ok(err.message.startsWith('syntax error'))
           done()
         })
@@ -69,9 +69,8 @@ describe('## pg-then', () => {
     let client
 
     it('new client', (done) => {
-      client = pg.Client(config)
-
-      setTimeout(done, 1000)
+      client = pg.Client(config); // desync'ed connection
+      done();
     })
 
     it('invalid query', (done) => {

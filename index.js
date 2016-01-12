@@ -6,6 +6,7 @@ const Rxo = Rx.Observable;
 const QueryStream = require('pg-query-stream')
 const pg = require('pg')
 const slice = [].slice
+const deasync = require('deasync')
 
 module.exports = {
   Client,
@@ -27,34 +28,43 @@ function Pool(config) {
 
 Pool.prototype.connect = function() {
   return Rxo.create((obs) => {
+    let _done = x=>x;
     pg.connect(this.config, (error, client, done) => {
+      _done = done;
+      //console.log(error, client, done)
       if (error) {
         done(error)
-        obs.onNext(Rxo.throw(new Error(error))) // Todo: Error obj needed?
+        obs.onError(error) // Todo: Error obj needed?
+        obs.onCompleted();
         return
       }
 
       obs.onNext({ client, done })
       obs.onCompleted();
     })
-  }).asObservable();
+
+    return dispose=>_done();
+  });
 }
 
 Pool.prototype.query = function() {
   const args = slice.call(arguments)
 
-  return this.connect().map((pool) => {
-    if(!pool) throw new Error("Pool not reached");
-    const rxquery = Rxo.fromNodeCallback(pool.client.query, pool.client);
-    return Rxo.defer(x => rxquery.apply(null, args))
-            .do( _ => _, _ => pool.done(), _ => pool.done() );
+  return this.connect().flatMap((pool) => {
+    if(!pool || !pool.client) return Rxo.throw(new Error("Pool not reached"));
+
+    pool.client.rxquery = pool.client.rxquery 
+        || Rxo.fromNodeCallback(pool.client.query, pool.client);
+
+    return Rxo.defer(x => pool.client.rxquery.apply(pool.client, args))
+            .do( () => null, () => pool.done(), () => pool.done() )
   })
 }
 
 Pool.prototype.stream = function(text, value, options) {
-  const stream = new Rx.Subject();
+  //const stream = new Rx.Subject();
 
-  this.connect().map(pool => {
+  return this.connect().flatMap(pool => Rxo.create(stream => {
     const query = new QueryStream(text, value, options)
     const source = pool.client.query(query)
     source.on('end', cleanup)
@@ -63,7 +73,7 @@ Pool.prototype.stream = function(text, value, options) {
     source.on('data', onData)
 
     function onError(err) {
-      stream.onNext(Rx.throw(err))
+      stream.onError(err)
       cleanup()
     }
 
@@ -80,9 +90,9 @@ Pool.prototype.stream = function(text, value, options) {
       source.removeListener('close', cleanup)
       stream.onCompleted()
     }
-  }).catch(err => stream.onNext(Rxo.throw(err)))
 
-  return stream.asObservable();
+    return cleanup;
+  })).catch(err => Rxo.throw(err) )
 }
 
 /**
@@ -93,22 +103,24 @@ function Client(config) {
     return new Client(config)
   }
 
-  this._client = new pg.Client(config)
+  const _client = this._client = new pg.Client(config)
+  let connected = false
+
   this._client.connect((error) => {
     if (error) {
       throw error
     }
+    connected = true
   })
+  deasync.loopWhile(function(){ return !connected });
 
-  this._rxquery = Rxo.fromNodeCallback(this._client, this);
-
+  this._rxquery = Rxo.fromNodeCallback(_client.query, _client);
 }
 
 Client.prototype.query = function() {
   const args = slice.call(arguments)
   const _rxquery = this._rxquery;
   
-  console.log('ssssss', _rxquery);
   return Rxo.defer(x => _rxquery.apply(null, args));
 }
 
@@ -127,7 +139,7 @@ Client.prototype.stream = function(text, value, options) {
   }
 
   function onError(err) {
-    stream.onNext(Rxo.throw(err))
+    stream.onError(err)
     cleanup()
   }
 

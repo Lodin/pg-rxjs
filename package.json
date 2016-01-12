@@ -27,6 +27,7 @@
     "pg": "4"
   },
   "dependencies": {
+    "deasync": "^0.1.4",
     "pg-query-stream": "1",
     "rx": "^4.0.7"
   }
