@@ -61,13 +61,13 @@ client.end()
 ### License
 MIT
 
-[npm-img]: https://img.shields.io/npm/v/pg-then.svg?style=flat-square
-[npm-url]: https://npmjs.org/package/pg-then
-[travis-img]: https://img.shields.io/travis/coderhaoxin/pg-then.svg?style=flat-square
-[travis-url]: https://travis-ci.org/coderhaoxin/pg-then
-[coveralls-img]: https://img.shields.io/coveralls/coderhaoxin/pg-then.svg?style=flat-square
-[coveralls-url]: https://coveralls.io/r/coderhaoxin/pg-then?branch=master
+[npm-img]: https://img.shields.io/npm/v/pg-rxjs.svg?style=flat-square
+[npm-url]: https://npmjs.org/package/pg-rxjs
+[travis-img]: https://img.shields.io/travis/jadbox/pg-rxjs.svg?style=flat-square
+[travis-url]: https://travis-ci.org/jadbox/pg-then
+[coveralls-img]: https://img.shields.io/coveralls/jadbox/pg-rxjs.svg?style=flat-square
+[coveralls-url]: https://coveralls.io/r/jadbox/pg-rxjs?branch=master
 [license-img]: https://img.shields.io/badge/license-MIT-green.svg?style=flat-square
 [license-url]: http://opensource.org/licenses/MIT
-[david-img]: https://img.shields.io/david/coderhaoxin/pg-then.svg?style=flat-square
-[david-url]: https://david-dm.org/coderhaoxin/pg-then
+[david-img]: https://img.shields.io/david/jadbox/pg-rxjs.svg?style=flat-square
+[david-url]: https://david-dm.org/jadbox/pg-rxjs

@@ -1,7 +1,7 @@
 {
   "name": "pg-rxjs",
   "version": "1.0.0",
-  "description": "pg-rxjs: use pg by rxjs",
+  "description": "pg-rxjs: use pg by Rx",
   "main": "index.js",
   "scripts": {
     "test": "mocha --harmony -R spec -t 5000 test/*.js",
