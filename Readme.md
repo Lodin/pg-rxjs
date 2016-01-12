@@ -59,6 +59,7 @@ client.end()
 ```
 
 * [Transactions](https://github.com/brianc/node-postgres/wiki/Transactions) (\w auto-rollback)
+_supports only waterfall queuing_
 
 ```js
 var transaction = client.transaction;
