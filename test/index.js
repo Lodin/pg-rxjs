@@ -66,15 +66,16 @@ describe('## pg-then', () => {
   })
 
   describe('# Client', () => {
-    let client
+    let client, query;
 
     it('new client', (done) => {
       client = pg.Client(config); // desync'ed connection
+      query = client.query; // query method is bound to client
       done();
     })
 
     it('invalid query', (done) => {
-      client.query('invalid sql')
+      query('invalid sql') // calling query without client context
         .subscribeOnError((err) => {
           assert.ok(err.message.startsWith('syntax error'))
           done()
