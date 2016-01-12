@@ -8,6 +8,7 @@
 ### pg-rxjs
 
 * Use `postgresql` with [`Rx`](https://github.com/Reactive-Extensions/RxJS) api, based on [pg](https://github.com/brianc/node-postgres).
+* Based on [`pg-then`](https://github.com/coderhaoxin/pg-then) using Rx and adding transaction support
 
 ### Install
 
