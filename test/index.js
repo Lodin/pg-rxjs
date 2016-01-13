@@ -4,6 +4,8 @@
 const assert = require('assert')
 const pg = require('../')
 
+var knex = require('knex')({client: 'pg'}); // for a test-case
+
 const config = 'postgres://hx:hx@localhost/hx'
 
 describe('## pg-rxjs', () => {
@@ -39,7 +41,6 @@ describe('## pg-rxjs', () => {
     })
 
     it('query with knex', (done) => {
-      var knex = require('knex')({client: 'pg'});
       return pg.Pool(config, {debug: false})
         .query(knex.select(1))
         .subscribe(result => {
@@ -68,7 +69,7 @@ describe('## pg-rxjs', () => {
         }, err => assert.fail('there should be no err', err))
     })
 
-     it('query transaction invalid function return', (done) => {
+     it('query transaction invalid function query', (done) => {
       const pool = pg.Pool(config, {debug: true});
       const transaction = pool.transaction, 
             query = pool.query;
@@ -78,13 +79,13 @@ describe('## pg-rxjs', () => {
         'SELECT 3 as count',
         x => {
           assert(x.rows[0].count === 3);
-          return { toString: null }; // invalid return step
+          return '@#'; // invalid return step
         }
         ])
         .subscribe(result => {
           assert.fail('there should be no result', result)
         }, err => {
-          assert.ok(err.message.indexOf('Invalid')!==-1)
+          assert.ok(err)
           done()
         })
     })
