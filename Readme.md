@@ -37,7 +37,7 @@ pool
 ```js
 pg.Pool(config)
   .stream('SELECT ...')
-  .map(data => ...)
+  .map(data => ...) // runs for each row streamed from the query
   .subscribe(data => ..., err => ..., end => ...)
 ```
 
@@ -50,7 +50,7 @@ const client = pg.Client('postgres://username:password@localhost/database')
 const query = client.query; // methods are already bound to the client
 
 query('SELECT ...')
-  .map(...)
+  .map(data => ...)
   .subscribe(data => ..., err => ..., end => ...)
 
 // ...
@@ -62,7 +62,7 @@ client.end()
 _supports only waterfall queuing_
 
 ```js
-var transaction = client.transaction;
+var transaction = client.transaction; // btw, methods do not rely on 'this'
 var query = client.query;
 
 transaction([
