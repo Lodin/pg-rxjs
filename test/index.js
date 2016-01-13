@@ -68,7 +68,10 @@ describe('## pg-rxjs', () => {
         ])
         .subscribe(result => {
           assert.fail('there should be no result', result)
-        }, err => done())
+        }, err => {
+          assert.ok(err.message.indexOf('Invalid')!==-1)
+          done()
+        })
     })
 
     it('stream', done => {
@@ -158,7 +161,10 @@ describe('## pg-rxjs', () => {
         ])
         .subscribe(result => {
           assert.fail('there should be no result', result)
-        }, err => done())
+        }, err => {
+          assert.ok(err.message.indexOf('Invalid transaction')!==-1)
+          done()
+        })
     })
 
     it('stream', done => {

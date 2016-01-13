@@ -30,7 +30,7 @@ function _transaction(_this, queryList) {
       if(i < queryList.length && prev) {
         lastResponse = prev;
       }
-      if(!x) return Rxo.empty();
+      if(!x) return Rxo.just(null);
 
       if(typeof x === 'string') return _this._query(x);
       else if(x.subscribe) return x;
