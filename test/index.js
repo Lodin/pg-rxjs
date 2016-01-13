@@ -28,7 +28,7 @@ describe('## pg-rxjs', () => {
     })
 
     it('query', () => {
-      return pg.Pool(config, {debug: true})
+      return pg.Pool(config, {debug: false})
         .query('SELECT 1 AS count')
         .subscribe(result => {
           assert.equal(result.rowCount, 1)
@@ -37,7 +37,7 @@ describe('## pg-rxjs', () => {
     })
 
     it('query transaction', () => {
-      const pool = pg.Pool(config, {debug: true});
+      const pool = pg.Pool(config, {debug: false});
       const transaction = pool.transaction, 
             query = pool.query;
       transaction([
@@ -51,6 +51,24 @@ describe('## pg-rxjs', () => {
           assert.equal(result.rowCount, 1)
           assert.equal(result.rows[0].count, 4)
         }, err => assert.fail('there should be no err', err))
+    })
+
+     it('query transaction invalid function return', (done) => {
+      const pool = pg.Pool(config, {debug: true});
+      const transaction = pool.transaction, 
+            query = pool.query;
+
+      transaction([
+        query('SELECT 2 as count'),
+        'SELECT 3 as count',
+        x => {
+          assert(x.rows[0].count === 3);
+          return null; // invalid return step
+        }
+        ])
+        .subscribe(result => {
+          assert.fail('there should be no result', result)
+        }, err => done())
     })
 
     it('stream', done => {
@@ -87,11 +105,12 @@ describe('## pg-rxjs', () => {
   })
 
   describe('# Client', () => {
-    let client, query;
+    let client, query, transaction;
 
     it('new client', (done) => {
       client = pg.Client(config, {debug: false}); // desync'ed connection
       query = client.query; // query method is bound to client
+      transaction = client.transaction;
       done();
     })
 
@@ -104,7 +123,7 @@ describe('## pg-rxjs', () => {
     })
 
     it('query', (done) => {
-      client.query('SELECT 1 AS count')
+      query('SELECT 1 AS count')
         .subscribe((result) => {
           assert.equal(result.rowCount, 1)
           assert.equal(result.rows[0].count, 1)
@@ -113,7 +132,7 @@ describe('## pg-rxjs', () => {
     })
 
     it('query transaction', (done) => {
-      client.transaction([
+      transaction([
         query('SELECT 2 as count'),
         'SELECT 3 as count',
         x => {
@@ -128,24 +147,11 @@ describe('## pg-rxjs', () => {
         }, err => assert.fail('there should be no err', err))
     })
 
-    it('query transaction invalid function return', (done) => {
-      client.transaction([
-        query('SELECT 2 as count'),
-        'SELECT 3 as count',
-        x => {
-          assert(x.rows[0].count === 3);
-          return null; // invalid return step
-        }
-        ])
-        .subscribe(result => {
-          assert.fail('there should be no result', result)
-        }, err => done())
-    })
-
      it('query transaction invalid query step', (done) => {
-      client.transaction([
+      transaction([
         query('SELECT 2 as count'),
-        null, // invalid step
+        null, // noop step, valid
+        {}, // invalid value for step
         x => {
           return query('SELECT $1::int as count', [x.rows[0].count+1])
         }
@@ -157,8 +163,7 @@ describe('## pg-rxjs', () => {
 
     it('stream', done => {
       let rows = 0
-      return client
-        .stream('SELECT 10 AS count')
+      return client.stream('SELECT 10 AS count')
         .subscribe(data => {
           rows++
           assert(rows === 1)

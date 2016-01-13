@@ -37,8 +37,8 @@ function _transaction(_this, queryList) {
       else if(typeof x === 'function') {
         const r = x(prev);
         if(typeof r === 'string') return _this._query(r);
-        else if(r.subscribe) return r;
-        else throw new Error('Invalid transaction step type', typeof r, r)
+        else if(r && r.subscribe) return r;
+        else throw new Error('Invalid transaction step fn return', typeof r, r)
       }
       else throw new Error('Invalid transaction step type', typeof x, x)
     })
@@ -46,7 +46,7 @@ function _transaction(_this, queryList) {
   .merge(1)
   .catch( x => {
     lastResponse = null;
-    if(this.ops.debug) console.log('Transaction error:', x);
+    if(_this.opts.debug) console.log('Transaction error:', x);
     return _this._query('ROLLBACK').flatMap(_=>Rxo.throw(x));
   }).first().map(x => lastResponse); // use last response before commit
 }
@@ -98,7 +98,6 @@ Pool.prototype._connect = function() {
 
 Pool.prototype._query = function() {
   const args = slice.call(arguments);
-  if(this.opts.debug) console.log('query:', args);
 
   return this._connect().flatMap((pool) => {
     if(!pool || !pool.client) return Rxo.throw(new Error("Pool not reached"));
@@ -106,8 +105,11 @@ Pool.prototype._query = function() {
     pool.client.rxquery = pool.client.rxquery 
         || Rxo.fromNodeCallback(pool.client.query, pool.client);
 
-    const ret = Rxo.defer(x => pool.client.rxquery.apply(pool.client, args))
-            .do( () => null, () => pool.done(), () => pool.done() )
+    const ret = Rxo.defer(x => { 
+        if(this.opts.debug) console.log('query:', args);
+        return pool.client.rxquery.apply(pool.client, args)
+      })
+      .do( () => null, () => pool.done(), () => pool.done() )
 
     return ret;
   })
@@ -183,10 +185,12 @@ Client.prototype._transaction = function(x) {
 
 Client.prototype._query = function() {
   const args = slice.call(arguments)
-  if(this.opts.debug) console.log('query:', args);
 
   const _rxquery = this._rxquery;
-  return Rxo.defer(x => _rxquery.apply(null, args));
+  return Rxo.defer(x => {
+     if(this.opts.debug) console.log('query:', args);
+    return _rxquery.apply(null, args)
+  });
 }
 
 Client.prototype._stream = function(text, value, options) {
