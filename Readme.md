@@ -29,7 +29,7 @@ const pool = pg.Pool('postgres://username:password@localhost/database')
 pool
   .query('SELECT ...')
   .map(...)
-  .subscribe(data => ..., end => ..., err => ...)
+  .subscribe(data => ..., err => ..., end => ...)
 ```
 
 * [Use QueryStream](https://github.com/brianc/node-pg-query-stream)
@@ -38,7 +38,7 @@ pool
 pg.Pool(config)
   .stream('SELECT ...')
   .map(data => ...)
-  .subscribe(data => ..., end => ..., err => ...)
+  .subscribe(data => ..., err => ..., end => ...)
 ```
 
 * [Client instance](https://github.com/brianc/node-postgres#client-instance)
@@ -51,7 +51,7 @@ const query = client.query; // methods are already bound to the client
 
 query('SELECT ...')
   .map(...)
-  .subscribe(data => ..., end => ..., err => ...)
+  .subscribe(data => ..., err => ..., end => ...)
 
 // ...
 
@@ -78,10 +78,14 @@ transaction([
     return query('SELECT $1::int as count', [x.rows[0].count+1])
    }
   ])
-  .subscribe(result => {
-    assert.equal(result.rowCount, 1)
-    assert.equal(result.rows[0].count, 4)
-  }, err => assert.fail('code will auto rollback'))
+  .subscribe(
+    result => {
+      assert.equal(result.rowCount, 1)
+      assert.equal(result.rows[0].count, 4)
+    }, 
+    err => assert.fail('code will auto rollback'),
+    () => console.log('completed') 
+  )
 
 ```
 
