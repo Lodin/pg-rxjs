@@ -6,7 +6,7 @@ const pg = require('../')
 
 const config = 'postgres://hx:hx@localhost/hx'
 
-describe('## pg-then', () => {
+describe('## pg-rxjs', () => {
   describe('# Pool', () => {
 
     it('invalid db uri', done => {
@@ -37,7 +37,7 @@ describe('## pg-then', () => {
     })
 
     it('query transaction', () => {
-      const pool = pg.Pool(config);
+      const pool = pg.Pool(config, {debug: true});
       const transaction = pool.transaction, 
             query = pool.query;
       transaction([
@@ -90,7 +90,7 @@ describe('## pg-then', () => {
     let client, query;
 
     it('new client', (done) => {
-      client = pg.Client(config, {debug: true}); // desync'ed connection
+      client = pg.Client(config, {debug: false}); // desync'ed connection
       query = client.query; // query method is bound to client
       done();
     })
@@ -126,6 +126,33 @@ describe('## pg-then', () => {
           assert.equal(result.rows[0].count, 4)
           done()
         }, err => assert.fail('there should be no err', err))
+    })
+
+    it('query transaction invalid function return', (done) => {
+      client.transaction([
+        query('SELECT 2 as count'),
+        'SELECT 3 as count',
+        x => {
+          assert(x.rows[0].count === 3);
+          return null; // invalid return step
+        }
+        ])
+        .subscribe(result => {
+          assert.fail('there should be no result', result)
+        }, err => done())
+    })
+
+     it('query transaction invalid query step', (done) => {
+      client.transaction([
+        query('SELECT 2 as count'),
+        null, // invalid step
+        x => {
+          return query('SELECT $1::int as count', [x.rows[0].count+1])
+        }
+        ])
+        .subscribe(result => {
+          assert.fail('there should be no result', result)
+        }, err => done())
     })
 
     it('stream', done => {

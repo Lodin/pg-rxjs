@@ -16,9 +16,20 @@ module.exports = {
 
 function _transaction(_this, queryList) {
   // Same as Client's version
-  queryList = [].concat(queryList);
-  return Rxo.fromArray(queryList).scan((acc, x) => {
+  queryList = ['BEGIN'].concat(queryList);
+  queryList.push('COMMIT');
+
+  //if(_this.opts.debug) console.log("starting transaction");
+
+  let lastResponse = null;
+  return Rxo.fromArray(queryList).reduce((acc, x, i) => {
+    /*if(_this.opts.debug) 
+      console.log('transaction ' + i + ': ', x.toString());*/
+
     return acc.concatMap( prev => {
+      if(i < queryList.length && prev) {
+        lastResponse = prev;
+      }
       if(!x) return Rxo.empty();
 
       if(typeof x === 'string') return _this._query(x);
@@ -34,9 +45,10 @@ function _transaction(_this, queryList) {
   }, Rxo.just(null))
   .merge(1)
   .catch( x => {
-    console.log('Transaction error:', x);
+    lastResponse = null;
+    if(this.ops.debug) console.log('Transaction error:', x);
     return _this._query('ROLLBACK').flatMap(_=>Rxo.throw(x));
-  }).last()
+  }).first().map(x => lastResponse); // use last response before commit
 }
 
 /**
@@ -94,8 +106,10 @@ Pool.prototype._query = function() {
     pool.client.rxquery = pool.client.rxquery 
         || Rxo.fromNodeCallback(pool.client.query, pool.client);
 
-    return Rxo.defer(x => pool.client.rxquery.apply(pool.client, args))
+    const ret = Rxo.defer(x => pool.client.rxquery.apply(pool.client, args))
             .do( () => null, () => pool.done(), () => pool.done() )
+
+    return ret;
   })
 }
 
