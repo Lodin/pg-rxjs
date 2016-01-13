@@ -27,16 +27,30 @@ describe('## pg-rxjs', () => {
         })
     })
 
-    it('query', () => {
-      return pg.Pool(config, {debug: false})
+    it('query', (done) => {
+      pg.Pool(config, {debug: false})
         .query('SELECT 1 AS count')
         .subscribe(result => {
           assert.equal(result.rowCount, 1)
           assert.equal(result.rows[0].count, 1)
-        })
+          done()
+        }, 
+        err => assert.fail('there should be no err', err))
     })
 
-    it('query transaction', () => {
+    it('query with knex', (done) => {
+      var knex = require('knex')({client: 'pg'});
+      return pg.Pool(config, {debug: false})
+        .query(knex.select(1))
+        .subscribe(result => {
+          assert.equal(result.rowCount, 1)
+          assert.equal(result.rows[0]['?column?'], 1)
+          done()
+        }, 
+        err => assert.fail('there should be no err', err))
+    })
+
+    it('query transaction', (done) => {
       const pool = pg.Pool(config, {debug: false});
       const transaction = pool.transaction, 
             query = pool.query;
@@ -50,6 +64,7 @@ describe('## pg-rxjs', () => {
         .subscribe(result => {
           assert.equal(result.rowCount, 1)
           assert.equal(result.rows[0].count, 4)
+          done()
         }, err => assert.fail('there should be no err', err))
     })
 
@@ -63,7 +78,7 @@ describe('## pg-rxjs', () => {
         'SELECT 3 as count',
         x => {
           assert(x.rows[0].count === 3);
-          return null; // invalid return step
+          return { toString: null }; // invalid return step
         }
         ])
         .subscribe(result => {
@@ -154,7 +169,7 @@ describe('## pg-rxjs', () => {
       transaction([
         query('SELECT 2 as count'),
         null, // noop step, valid
-        {}, // invalid value for step
+        { toString: null }, // invalid value for step
         x => {
           return query('SELECT $1::int as count', [x.rows[0].count+1])
         }
@@ -162,7 +177,7 @@ describe('## pg-rxjs', () => {
         .subscribe(result => {
           assert.fail('there should be no result', result)
         }, err => {
-          assert.ok(err.message.indexOf('Invalid transaction')!==-1)
+          assert.ok(err.message.indexOf('Invalid')!==-1)
           done()
         })
     })

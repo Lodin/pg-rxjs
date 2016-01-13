@@ -23,6 +23,7 @@
   "license": "MIT",
   "devDependencies": {
     "istanbul": "0",
+    "knex": "^0.9.0",
     "mocha": "2",
     "pg": "4"
   },

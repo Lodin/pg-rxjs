@@ -38,17 +38,42 @@ function _transaction(_this, queryList) {
         const r = x(prev);
         if(typeof r === 'string') return _this._query(r);
         else if(r && r.subscribe) return r;
-        else throw new Error('Invalid transaction step fn return', typeof r, r)
+        else return _this._query(r); // klex
       }
-      else throw new Error('Invalid transaction step type', typeof x, x)
+      else return _this._query(x); // klex
     })
   }, Rxo.just(null))
   .merge(1)
   .catch( x => {
     lastResponse = null;
-    if(_this.opts.debug) console.log('Transaction error:', x);
+    if(_this.opts.debug) console.log('Transaction error:', x.message);
     return _this._query('ROLLBACK').flatMap(_=>Rxo.throw(x));
   }).first().map(x => lastResponse); // use last response before commit
+}
+
+function _query(client, args) {
+  if(!client) return Rxo.throw(new Error("Client not reached"));
+
+  let query = args.length > 0 ? args[0] : null;
+  if(!query) throw new Error('No query given');
+
+  if(query && typeof query !== 'string') {
+    if(typeof query.toString === 'function') {
+      query = args[0] = query.toString(); // klex support
+    }
+    else return Rxo.throw(new Error('Invalid object for query:', typeof query, query));
+  } 
+
+  client.rxquery =
+   client.rxquery || Rxo.fromNodeCallback(client.query, client);
+
+  const ret = Rxo.defer(x => { 
+      if(this.opts.debug) console.log('query:', args);
+      return client.rxquery.apply(client, args)
+    })
+      
+
+  return ret;
 }
 
 /**
@@ -99,20 +124,14 @@ Pool.prototype._connect = function() {
 Pool.prototype._query = function() {
   const args = slice.call(arguments);
 
-  return this._connect().flatMap((pool) => {
-    if(!pool || !pool.client) return Rxo.throw(new Error("Pool not reached"));
-
-    pool.client.rxquery = pool.client.rxquery 
-        || Rxo.fromNodeCallback(pool.client.query, pool.client);
-
-    const ret = Rxo.defer(x => { 
-        if(this.opts.debug) console.log('query:', args);
-        return pool.client.rxquery.apply(pool.client, args)
-      })
-      .do( () => null, () => pool.done(), () => pool.done() )
-
-    return ret;
-  })
+  let _pool;
+  return this._connect().flatMap(pool => {
+    _pool = pool;
+    return _query.call(this, pool.client, args);
+  }).do( 
+    () => null, 
+    () => _pool.done(), 
+    () => _pool.done() )
 }
 
 Pool.prototype._stream = function(text, value, options) {
@@ -120,6 +139,7 @@ Pool.prototype._stream = function(text, value, options) {
 
   return this._connect().flatMap(pool => Rxo.create(stream => {
     if(this.opts.debug) console.log('stream:', text, value || '', options || '')
+    if(text.toString) text = text.toString();
     const query = new QueryStream(text, value, options)
     const source = pool.client.query(query)
     source.on('end', cleanup)
@@ -169,8 +189,6 @@ function Client(config, opts) {
   })
   deasync.loopWhile(function(){ return !connected });
 
-  this._rxquery = Rxo.fromNodeCallback(_client.query, _client);
-
   this.opts = opts || {};
 
   return { query: this._query.bind(this), 
@@ -186,15 +204,12 @@ Client.prototype._transaction = function(x) {
 Client.prototype._query = function() {
   const args = slice.call(arguments)
 
-  const _rxquery = this._rxquery;
-  return Rxo.defer(x => {
-     if(this.opts.debug) console.log('query:', args);
-    return _rxquery.apply(null, args)
-  });
+  return _query.call(this, this._client, args);
 }
 
 Client.prototype._stream = function(text, value, options) {
   const stream = new Rx.Subject();
+  if(text.toString) text = text.toString();
   if(this.opts.debug) console.log('stream:', text, value||'', options||'')
 
   const query = new QueryStream(text, value, options)
