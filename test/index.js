@@ -225,11 +225,29 @@ describe('## pg-rxjs', () => {
     it('stream with Moment', done => {
       let rows = 0
       const m = moment();
-      return client.stream('SELECT $NOW AS time_now')
+      return client.stream('SELECT $NOW AS time_now, $1::int AS other', [1])
         .subscribe(data => {
           rows++
           assert(rows === 1)
           assert.equal(data.time_now, m.toDate().toString())
+          assert.equal(data.other, 1);
+        },
+        err => assert.fail('there should be no error', err),
+        () => {
+          assert(rows === 1);
+          done();
+        })
+    })
+
+    it('stream with Moment Obj', done => {
+      let rows = 0
+      const m = moment();
+      return client.stream('SELECT $1 AS time_now, $2::int AS other', [m, 1])
+        .subscribe(data => {
+          rows++
+          assert(rows === 1)
+          assert.equal(data.time_now, m.toDate().toString())
+          assert.equal(data.other, 1);
         },
         err => assert.fail('there should be no error', err),
         () => {

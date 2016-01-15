@@ -22,7 +22,9 @@ function _stream(_client, text, value, options) {
   if(this.opts.debug) console.log('stream:', text, value||'', options||'')
 
   if(!this.opts.noMoment) { 
-    const tmp = parseMoment([text].concat(value));
+    console.log('tx', text);
+    const tmp = parseMoment(text, value);
+    console.log('tmp', tmp);
     text = tmp[0];
     value = tmp[1];
   }
@@ -105,7 +107,11 @@ function _query(client, args) {
     else return Rxo.throw(new Error('Invalid object for query:', typeof query, query));
   }
 
-  if(!this.opts.noMoment) args = parseMoment(args);
+  if(!this.opts.noMoment) {
+    const tmp = parseMoment(args[0], args[1]);
+    args[0] = query = tmp[0];
+    args[1] = tmp[1];
+  }
 
   client.rxquery =
    client.rxquery || Rxo.fromNodeCallback(client.query, client);
@@ -125,21 +131,21 @@ function replaceNow(m) {
   return x;
 }
 
-function parseMoment(x) {
+function parseMoment(q, p) {
   // query helper
-  x[0] = x[0].replace(/\$NOW/g, function() { return replaceNow() });
+  q = q.replace(/\$NOW/g, function() { return replaceNow() });
 
-  if(x.length < 2) return x;
+  if(!p || !Array.isArray(p)) return [q, p];
 
   // Find moment params objects and replace it with timestamp inputs
   let reduceParams = 0;
-  x[1] = _.reduce(x[1], (acc, y, i) => {
+  p = _.reduce(p, (acc, y, i) => {
     const index = i + 1;
     const rindex = index - reduceParams;
     // shift params back
-    if(reduceParams>0) x[0] = x[0].replace('$'+(index), '$'+(rindex));
+    if(reduceParams>0) q = q.replace('$'+(index), '$'+(rindex));
     if(y && y instanceof moment) {
-      x[0] = x[0].replace('$'+(rindex), replaceNow(y));
+      q = q.replace('$'+(rindex), replaceNow(y));
       reduceParams++;
       return acc; // replace param with null
     }
@@ -147,7 +153,7 @@ function parseMoment(x) {
     return acc;
   }, [])
 
-  return x;
+  return [q, p];
 }
 
 /**
@@ -204,13 +210,11 @@ Pool.prototype._query = function() {
     () => _pool.done() )
 }
 
-Pool.prototype._stream = function() {
-  const args = slice.call(arguments);
-
+Pool.prototype._stream = function(text, value, options) {
   let _pool;
   return this._connect().flatMap(pool => {
     _pool = pool;
-    return _stream.call(this, pool.client, args);
+    return _stream.call(this, pool.client, text, value, options);
   }).do( 
     () => null, 
     () => _pool.done(), 
@@ -250,10 +254,8 @@ Client.prototype._query = function() {
   return _query.call(this, this._client, args);
 }
 
-Client.prototype._stream = function() {
-  const args = slice.call(arguments)
-
-  return _stream.call(this, this._client, args);
+Client.prototype._stream = function(text, value, options) {
+  return _stream.call(this, this._client, text, value, options);
 }
 
 Client.prototype._end = function() {
