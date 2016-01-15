@@ -16,16 +16,54 @@ module.exports = {
   pg
 }
 
-function _transaction(_this, queryList) {
+function _stream(_client, text, value, options) {
+  const stream = new Rx.Subject();
+  if(text.toString) text = text.toString();
+  if(this.opts.debug) console.log('stream:', text, value||'', options||'')
+
+  if(!this.opts.noMoment) { 
+    const tmp = parseMoment([text].concat(value));
+    text = tmp[0];
+    value = tmp[1];
+  }
+
+  const query = new QueryStream(text, value, options)
+  const source = _client.query(query)
+  source.on('end', cleanup)
+  source.on('error', onError)
+  source.on('close', cleanup)
+  source.on('data', onData)
+
+  function onData(x) {
+    stream.onNext(x)
+  }
+
+  function onError(err) {
+    stream.onError(err)
+    cleanup()
+  }
+
+  function cleanup() {
+    source.removeListener('data', onData)
+    source.removeListener('end', cleanup)
+    source.removeListener('error', onError)
+    source.removeListener('close', cleanup)
+    stream.onCompleted()
+  }
+
+  return stream.asObservable();
+}
+
+function _transaction(queryList) {
   // Same as Client's version
   queryList = ['BEGIN'].concat(queryList);
   queryList.push('COMMIT');
 
-  //if(_this.opts.debug) console.log("starting transaction");
+  //if(this.opts.debug) console.log("starting transaction");
 
   let lastResponse = null;
   return Rxo.fromArray(queryList).reduce((acc, x, i) => {
-    /*if(_this.opts.debug) 
+    /*if(this.opts.debug) 
       console.log('transaction ' + i + ': ', x.toString());*/
 
     return acc.concatMap( prev => {
@@ -34,22 +72,22 @@ function _transaction(_this, queryList) {
       }
       if(!x) return Rxo.just(null);
 
-      if(typeof x === 'string') return _this._query(x);
+      if(typeof x === 'string') return this._query(x);
       else if(x.subscribe) return x;
       else if(typeof x === 'function') {
         const r = x(prev);
-        if(typeof r === 'string') return _this._query(r);
+        if(typeof r === 'string') return this._query(r);
         else if(r && r.subscribe) return r;
-        else return _this._query(r); // klex
+        else return this._query(r); // klex
       }
-      else return _this._query(x); // klex
+      else return this._query(x); // klex
     })
   }, Rxo.just(null))
   .merge(1)
   .catch( x => {
     lastResponse = null;
-    if(_this.opts.debug) console.log('Transaction error:', x.message);
-    return _this._query('ROLLBACK').flatMap(_=>Rxo.throw(x));
+    if(this.opts.debug) console.log('Transaction error:', x.message);
+    return this._query('ROLLBACK').flatMap(_=>Rxo.throw(x));
   }).first().map(x => lastResponse); // use last response before commit
 }
 
@@ -60,7 +98,8 @@ function _query(client, args) {
   if(!query) throw new Error('No query given');
 
   if(query && typeof query !== 'string') {
-    if(typeof query.toString === 'function') {
+    if(query instanceof QueryStream) null; // ignore QS
+    else if(typeof query.toString === 'function') {
       query = args[0] = query.toString(); // klex support
     }
     else return Rxo.throw(new Error('Invalid object for query:', typeof query, query));
@@ -127,12 +166,8 @@ function Pool(config, opts) {
           connect: this._connect.bind(this),
           query: this._query.bind(this), 
           stream: this._stream.bind(this),
-          transaction: this._transaction.bind(this)
+          transaction: _transaction.bind(this)
           }
-}
-
-Pool.prototype._transaction = function(x) {
- return _transaction(this, x)
 }
 
 Pool.prototype._connect = function() {
@@ -169,40 +204,17 @@ Pool.prototype._query = function() {
     () => _pool.done() )
 }
 
-Pool.prototype._stream = function(text, value, options) {
-  //const stream = new Rx.Subject();
+Pool.prototype._stream = function() {
+  const args = slice.call(arguments);
 
-  return this._connect().flatMap(pool => Rxo.create(stream => {
-    if(this.opts.debug) console.log('stream:', text, value || '', options || '')
-    if(text.toString) text = text.toString();
-    const query = new QueryStream(text, value, options)
-    const source = pool.client.query(query)
-    source.on('end', cleanup)
-    source.on('error', onError)
-    source.on('close', cleanup)
-    source.on('data', onData)
-
-    function onError(err) {
-      stream.onError(err)
-      cleanup()
-    }
-
-    function onData(x) {
-      stream.onNext(x)
-    }
-
-    function cleanup() {
-      pool.done()
-
-      source.removeListener('data', onData)
-      source.removeListener('end', cleanup)
-      source.removeListener('error', onError)
-      source.removeListener('close', cleanup)
-      stream.onCompleted()
-    }
-
-    return cleanup;
-  })).catch(err => Rxo.throw(err) )
+  let _pool;
+  return this._connect().flatMap(pool => {
+    _pool = pool;
+    return _stream.call(this, pool.client, args);
+  }).do( 
+    () => null, 
+    () => _pool.done(), 
+    () => _pool.done() )
 }
 
 /**
@@ -229,11 +241,7 @@ function Client(config, opts) {
   return { query: this._query.bind(this), 
           stream: this._stream.bind(this),
           end: this._end.bind(this),
-          transaction: this._transaction.bind(this) }
-}
-
-Client.prototype._transaction = function(x) {
- return _transaction(this, x)
+          transaction: _transaction.bind(this) }
 }
 
 Client.prototype._query = function() {
@@ -242,36 +250,10 @@ Client.prototype._query = function() {
   return _query.call(this, this._client, args);
 }
 
-Client.prototype._stream = function(text, value, options) {
-  const stream = new Rx.Subject();
-  if(text.toString) text = text.toString();
-  if(this.opts.debug) console.log('stream:', text, value||'', options||'')
+Client.prototype._stream = function() {
+  const args = slice.call(arguments)
 
-  const query = new QueryStream(text, value, options)
-  const source = this._client.query(query)
-  source.on('end', cleanup)
-  source.on('error', onError)
-  source.on('close', cleanup)
-  source.on('data', onData)
-
-  function onData(x) {
-    stream.onNext(x)
-  }
-
-  function onError(err) {
-    stream.onError(err)
-    cleanup()
-  }
-
-  function cleanup() {
-    source.removeListener('data', onData)
-    source.removeListener('end', cleanup)
-    source.removeListener('error', onError)
-    source.removeListener('close', cleanup)
-    stream.onCompleted()
-  }
-
-  return stream.asObservable();
+  return _stream.call(this, this._client, args);
 }
 
 Client.prototype._end = function() {

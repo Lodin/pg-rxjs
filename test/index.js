@@ -222,6 +222,22 @@ describe('## pg-rxjs', () => {
         })
     })
 
+    it('stream with Moment', done => {
+      let rows = 0
+      const m = moment();
+      return client.stream('SELECT $NOW AS time_now')
+        .subscribe(data => {
+          rows++
+          assert(rows === 1)
+          assert.equal(data.time_now, m.toDate().toString())
+        },
+        err => assert.fail('there should be no error', err),
+        () => {
+          assert(rows === 1);
+          done();
+        })
+    })
+
     it('end', () => {
       client.end()
     })
