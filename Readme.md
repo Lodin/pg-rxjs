@@ -24,7 +24,9 @@ $ npm install pg-rxjs
 ```js
 const pg = require('pg-rxjs')
 
-const pool = pg.Pool('postgres://username:password@localhost/database')
+// Default config: { debug: false, noMoment: false }
+// 'debug' option console.logs statements that pg will execute
+const pool = pg.Pool('postgres://username:password@localhost/database', {...config})
 
 pool
   .query('SELECT ...')
@@ -46,7 +48,7 @@ pg.Pool(config)
 ```js
 const pg = require('pg-rxjs')
 
-const client = pg.Client('postgres://username:password@localhost/database')
+const client = pg.Client('postgres://username:password@localhost/database', {...config})
 const query = client.query; // methods are already bound to the client
 
 query('SELECT ...')
@@ -100,7 +102,7 @@ transaction([
 * Input time using [Moment.js](http://momentjs.com/)
  * Disable by setting opts: pg.Client(url, {noMoment: true})
  * Only works with *timestamps*, not date fields
- * Works with transactions and stream objects too
+ * Works with transactions and stream methods too
 
 ```js
 // Use $NOW to insert a timestamp value of the current UTC time
