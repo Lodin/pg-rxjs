@@ -29,6 +29,8 @@
   },
   "dependencies": {
     "deasync": "^0.1.4",
+    "lodash": "^4.0.0",
+    "moment": "^2.11.1",
     "pg-query-stream": "1",
     "rx": "^4.0.7"
   }

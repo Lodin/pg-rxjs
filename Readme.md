@@ -89,6 +89,30 @@ transaction([
 
 ```
 
+* Input time using [Moment.js](http://momentjs.com/)
+Disable by setting opts: pg.Client(url, {noMoment: true})
+
+```
+// Use $NOW to insert a timestamp value of the current UTC time
+query('SELECT $NOW AS time_now')
+// .. the same as query('SELECT to_timestamp(1452819700) as time_now')
+
+
+// Use a moment object to insert a placeholder as a timestamp
+// Note: no need to specify the paremeter as a timestamp
+const m = moment();
+query('SELECT $1 AS time_param, $2::int AS second_param', [m, 42])
+  .subscribe((result) => {
+    console.log('result', result, typeof result.rows[0].time_param);
+    assert.equal(result.rowCount, 1)
+    
+    assert.equal(result.rows[0].time_param, m.toDate().toString())
+    assert.equal(result.rows[0].second_param, 42)
+    
+    done();
+  }, err => assert.fail('there should be no error:', err))
+```
+
 ### License
 MIT
 
