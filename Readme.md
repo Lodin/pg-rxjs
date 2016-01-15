@@ -52,11 +52,12 @@ const query = client.query; // methods are already bound to the client
 query('SELECT ...')
   .subscribe(data => ..., err => ..., end => ...)
 
+// Using Rx chaining
 query('SELECT $1 as count', 42).
     .map(result => result.rows[0].count)
     .flatMap(count => query('SELECT $1 as count_again', [count])
     .subscribe(data => console.log( data.rows[0].count_again )
-// ...
+
 
 client.end()
 ```
