@@ -103,6 +103,7 @@ transaction([
  * Disable by setting opts: pg.Client(url, {noMoment: true})
  * Only works with *timestamps*, not date fields
  * Works with transactions and stream methods too
+ * Moment objects are auto converted to UTC (best practice)
 
 ```js
 // Use $NOW to insert a timestamp value of the current UTC time
