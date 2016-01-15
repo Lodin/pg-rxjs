@@ -1,6 +1,6 @@
 {
   "name": "pg-rxjs",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "pg-rxjs: use pg by Rx",
   "main": "index.js",
   "scripts": {
