@@ -50,9 +50,12 @@ const client = pg.Client('postgres://username:password@localhost/database')
 const query = client.query; // methods are already bound to the client
 
 query('SELECT ...')
-  .map(data => ...)
   .subscribe(data => ..., err => ..., end => ...)
 
+query('SELECT $1 as count', 42).
+    .map(result => result.rows[0].count)
+    .flatMap(count => query('SELECT $1 as count_again', [count])
+    .subscribe(data => console.log( data.rows[0].count_again )
 // ...
 
 client.end()
@@ -68,6 +71,10 @@ var query = client.query;
 transaction([
   // use the query method
   query('SELECT 2 as count'), 
+  
+  // use Rx chaining
+  query('SELECT 1 as count')
+    .map(x => 'success: ' + x.row[0].count)
 
   // or use a raw string to query
   'SELECT 3 as count', 
@@ -90,11 +97,11 @@ transaction([
 ```
 
 * Input time using [Moment.js](http://momentjs.com/)
- * _Disable by setting opts: pg.Client(url, {noMoment: true})_
- * _Only works with timestamps, not date fields_
+ * Disable by setting opts: pg.Client(url, {noMoment: true})
+ * Only works with *timestamps*, not date fields
 
 ```js
-// Use $NOW to insert a _timestamp_ value of the current UTC time
+// Use $NOW to insert a timestamp value of the current UTC time
 query('SELECT $NOW AS time_now').subscribe(x => ...)
 // .. the same as query('SELECT to_timestamp(1452819700) as time_now')
 
