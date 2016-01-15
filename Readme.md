@@ -100,11 +100,12 @@ transaction([
 * Input time using [Moment.js](http://momentjs.com/)
  * Disable by setting opts: pg.Client(url, {noMoment: true})
  * Only works with *timestamps*, not date fields
+ * Works with transactions and stream objects too
 
 ```js
 // Use $NOW to insert a timestamp value of the current UTC time
 query('SELECT $NOW AS time_now').subscribe(x => ...)
-// .. the same as query('SELECT to_timestamp(1452819700) as time_now')
+// .. the same as query('SELECT to_timestamp(1452819700) AS time_now')
 
 
 // Use a moment object to insert a placeholder as a timestamp
