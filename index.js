@@ -22,9 +22,7 @@ function _stream(_client, text, value, options) {
   if(this.opts.debug) console.log('stream:', text, value||'', options||'')
 
   if(!this.opts.noMoment) { 
-    console.log('tx', text);
     const tmp = parseMoment(text, value);
-    console.log('tmp', tmp);
     text = tmp[0];
     value = tmp[1];
   }
