@@ -5,6 +5,7 @@ const assert = require('assert')
 const pg = require('../')
 
 var knex = require('knex')({client: 'pg'}); // for a test-case
+var moment = require('moment');
 
 const config = 'postgres://hx:hx@localhost/hx'
 
@@ -148,6 +149,29 @@ describe('## pg-rxjs', () => {
           assert.equal(result.rows[0].count, 1)
           done();
         })
+    })
+
+    it('query with MOMENT', (done) => {
+      const m = moment();
+      query('SELECT $NOW AS time_now')
+        .subscribe((result) => {
+          assert.ok(result.rows[0].time_now, m.toDate().toString())
+          assert.equal(result.rowCount, 1)
+          done();
+        }, err => assert.fail('there should be no error:', err))
+    })
+
+    it('query with MOMENT Object', (done) => {
+      const m = moment()
+      query('SELECT $1 AS time_param, $2::int AS second_param', [m, 42])
+        .subscribe((result) => {
+          assert.equal(result.rowCount, 1)
+          
+          assert.equal(result.rows[0].time_param, m.toDate().toString())
+          assert.equal(result.rows[0].second_param, 42)
+          
+          done();
+        }, err => assert.fail('there should be no error:', err))
     })
 
     it('query transaction', (done) => {

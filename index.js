@@ -7,6 +7,8 @@ const QueryStream = require('pg-query-stream')
 const pg = require('pg')
 const slice = [].slice
 const deasync = require('deasync')
+const _ = require('lodash')
+const moment = require('moment')
 
 module.exports = {
   Client,
@@ -62,7 +64,9 @@ function _query(client, args) {
       query = args[0] = query.toString(); // klex support
     }
     else return Rxo.throw(new Error('Invalid object for query:', typeof query, query));
-  } 
+  }
+
+  if(!this.opts.noMoment) args = parseMoment(args);
 
   client.rxquery =
    client.rxquery || Rxo.fromNodeCallback(client.query, client);
@@ -74,6 +78,37 @@ function _query(client, args) {
       
 
   return ret;
+}
+
+function replaceNow(m) {
+  const unix = m ? m.utc().unix() : moment().utc().unix();
+  const x = "to_timestamp(" + unix + ")"
+  return x;
+}
+
+function parseMoment(x) {
+  // query helper
+  x[0] = x[0].replace(/\$NOW/g, function() { return replaceNow() });
+
+  if(x.length < 2) return x;
+
+  // Find moment params objects and replace it with timestamp inputs
+  let reduceParams = 0;
+  x[1] = _.reduce(x[1], (acc, y, i) => {
+    const index = i + 1;
+    const rindex = index - reduceParams;
+    // shift params back
+    if(reduceParams>0) x[0] = x[0].replace('$'+(index), '$'+(rindex));
+    if(y && y instanceof moment) {
+      x[0] = x[0].replace('$'+(rindex), replaceNow(y));
+      reduceParams++;
+      return acc; // replace param with null
+    }
+    acc.push(y);
+    return acc;
+  }, [])
+
+  return x;
 }
 
 /**
