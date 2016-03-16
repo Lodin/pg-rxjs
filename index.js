@@ -1,4 +1,3 @@
-
 'use strict'
 
 const Rx = global.Rx || require('rx');
@@ -91,8 +90,10 @@ function _transaction(queryList) {
   .merge(1)
   .catch( x => {
     lastResponse = null;
-    if(this.opts.debug) console.log('Transaction error:', x.message);
-    return this._query('ROLLBACK').flatMap(_=>Rxo.throw(x));
+    var err = JSON.stringify(x);
+    if(this.opts.debug) 
+      console.log('Transaction error:', x.message, err);
+    return this._query('ROLLBACK').flatMap(_=> Rxo.throw( {message:x.message, detail:err} ));
   }).first().map(x => lastResponse); // use last response before commit
 }
 
