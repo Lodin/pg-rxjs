@@ -58,15 +58,20 @@ function _transaction(queryList) {
   // Same as Client's version
   queryList = ['BEGIN'].concat(queryList);
   queryList.push('COMMIT');
+  //console.log('queryList', queryList)
 
   //if(this.opts.debug) console.log("starting transaction");
 
   let lastResponse = null;
   return Rxo.fromArray(queryList).reduce((acc, x, i) => {
-    /*if(this.opts.debug) 
-      console.log('transaction ' + i + ': ', x.toString());*/
+    if(this.opts.debug) {
+      if(typeof x === 'function')
+        console.log('transaction ' + i + ': function');
+      else if(!!x.subscribe) console.log('transaction ' + i + ': Rx');
+      else console.log('transaction ' + i + ':', JSON.stringify(x));
+    }
 
-    return acc.concatMap( prev => {
+    return acc.first().concatMap( prev => {
       if(i < queryList.length && prev) {
         lastResponse = prev;
       }

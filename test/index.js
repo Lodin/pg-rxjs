@@ -41,10 +41,27 @@ describe('## pg-rxjs', () => {
         err => assert.fail('there should be no err', err))
     })
 
+    it('query with map', (done) => {
+      const p = pg.Pool(config, {debug: false});
+
+        p.query('SELECT 2 AS count')
+        .concatMap(x => {
+          assert.equal(x.rows[0].count, 2)
+          return p.query('SELECT 1 AS count')
+        })
+        .subscribe(result => {
+          assert.equal(result.rowCount, 1)
+          assert.equal(result.rows[0].count, 1)
+          done()
+        }, 
+        err => assert.fail('there should be no err', err))
+    })
+
     it('query with knex', (done) => {
       return pg.Pool(config, {debug: false})
         .query(knex.select(1))
         .subscribe(result => {
+          //console.log('result', result);
           assert.equal(result.rowCount, 1)
           assert.equal(result.rows[0]['?column?'], 1)
           done()
@@ -57,7 +74,24 @@ describe('## pg-rxjs', () => {
       const transaction = pool.transaction, 
             query = pool.query;
       transaction([
-        query('SELECT 2 as count'),
+        query('SELECT 2 as count').flatMap(x=> {
+          //console.log('x',x)
+          return query('SELECT 22 as count')
+        }),
+        x => {
+          assert.equal(x.rows[0].count, 22)
+          return query('SELECT 3 as count')
+        },
+        'SELECT 13 as count',
+        'SELECT 23 as count',
+        'SELECT 33 as count',
+        'SELECT 43 as count',
+        'SELECT 53 as count',
+        'SELECT 63 as count',
+        'SELECT 73 as count',
+        'SELECT 83 as count',
+        'SELECT 93 as count',
+        'SELECT 03 as count',
         'SELECT 3 as count',
         x => {
           return query('SELECT $1::int as count', [x.rows[0].count+1])
@@ -71,7 +105,7 @@ describe('## pg-rxjs', () => {
     })
 
      it('query transaction invalid function query', (done) => {
-      const pool = pg.Pool(config, {debug: true});
+      const pool = pg.Pool(config, {debug: false});
       const transaction = pool.transaction, 
             query = pool.query;
 
