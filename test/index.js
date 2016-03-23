@@ -22,7 +22,7 @@ describe('## pg-rxjs', () => {
     })
 
     it('invalid query', (done) => {
-      pg.Pool(config)
+      pg.Pool(config, {debug: false})
         .query('invalid sql')
         .subscribeOnError(err => {
           assert.ok(err.message.startsWith('syntax error'))

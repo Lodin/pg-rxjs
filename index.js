@@ -8,6 +8,7 @@ const slice = [].slice
 const deasync = require('deasync')
 const _ = require('lodash')
 const moment = require('moment')
+let QI = 0; // debug query index
 
 module.exports = {
   Client,
@@ -117,12 +118,19 @@ function _query(client, args) {
     args[1] = tmp[1];
   }
 
+  QI++;
+
   client.rxquery =
    client.rxquery || Rxo.fromNodeCallback(client.query, client);
 
   const ret = Rxo.defer(x => { 
-      if(this.opts.debug) console.log('query:', args);
-      return client.rxquery.apply(client, args)
+      if(this.opts.debug) console.log(QI + ' query:', args);
+      var invokedrx = client.rxquery.apply(client, args);
+      if(this.opts.debug) invokedrx = invokedrx.do(
+        x => console.log(QI + ' done:', x.rows),
+        x => console.log(QI + ' error:', x)
+      )
+      return invokedrx;
     })
       
 
