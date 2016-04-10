@@ -55,6 +55,8 @@ function _stream(_client, text, value, options) {
 }
 
 function _transaction(queryList) {
+  this.transactions = this.transactions || 0;
+  this.transactions += 1;
   // Same as Client's version
   queryList = ['BEGIN'].concat(queryList);
   queryList.push('COMMIT');
@@ -95,7 +97,10 @@ function _transaction(queryList) {
     if(this.opts.debug) 
       console.log('Transaction error:', x.message, err);
     return this._query('ROLLBACK').flatMap(_=> Rxo.throw( {message:x.message, detail:err} ));
-  }).first().map(x => lastResponse); // use last response before commit
+  })
+  .first()
+  .map(x => lastResponse) // use last response before commit
+  .do(x => this.transactions--)
 }
 
 function _query(client, args) {
@@ -195,7 +200,7 @@ Pool.prototype._connect = function() {
       _done = done;
       //console.log(error, client, done)
       if (error) {
-        done(error)
+        //done(error)
         obs.onError(error) // Todo: Error obj needed?
         obs.onCompleted();
         return
@@ -214,7 +219,11 @@ Pool.prototype._query = function() {
 
   let _pool;
   return this._connect().flatMap(pool => {
-    _pool = pool;
+    if(!this.transactions && !this.poolCache) this.clientCache = pool.client;
+    else if(this.transactions) {
+      _pool = { client: this.clientCache, done: x=>x };
+    }
+    else _pool = pool;
     return _query.call(this, pool.client, args);
   }).do( 
     () => null, 
