@@ -53,7 +53,7 @@ function _stream(_client, text, value, options) {
   return stream.asObservable();
 }
 
-function _transaction(queryList) {
+function _transaction(queryList, client) {
   // Same as Client's version
   queryList = ['BEGIN'].concat(queryList);
   queryList.push('COMMIT');
@@ -170,7 +170,7 @@ function parseMoment(q, p) {
 /**
  * Pool
  */
-
+let i = 0;
 function Pool(config, opts) {
   if (!(this instanceof Pool)) {
     return new Pool(config, opts)
@@ -183,8 +183,28 @@ function Pool(config, opts) {
           connect: this._connect.bind(this),
           query: this._query.bind(this), 
           stream: this._stream.bind(this),
-          transaction: _transaction.bind(this)
+          transaction: this.__transaction.bind(this), 
           }
+}
+
+Pool.prototype.__transaction = function(queryList) {
+  const args = slice.call(arguments);
+
+  if(this._pool) return _transaction.call(this, queryList, this._pool.client);
+
+  return this._connect().flatMap(pool => {
+    this._pool = pool;
+    return _transaction.call(this, queryList, pool.client);
+  }).do( 
+    () => null, 
+    () => { 
+      //console.log('-ii', --i);
+      this._pool.done();
+      this._pool = null },
+    () => {
+      //console.log('-ii', --i);
+      this._pool.done();
+      this._pool = null })
 }
 
 Pool.prototype._connect = function() {
@@ -192,6 +212,13 @@ Pool.prototype._connect = function() {
     this.pg = require('pg');
     if(!!this.opts.native) this.pg = this.pg.native;
   }
+
+  if(this._pool) { // transaction being used
+    //console.log('=ii', i)
+    return Rxo.just(this._pool);
+  }
+
+  //console.log('+i', ++i)
 
   return Rxo.create((obs) => {
     let _done = x=>x;
@@ -219,11 +246,18 @@ Pool.prototype._query = function() {
   let _pool;
   return this._connect().flatMap(pool => {
     _pool = pool;
+    
     return _query.call(this, pool.client, args);
   }).do( 
     () => null, 
-    () => _pool.done(), 
-    () => _pool.done() )
+    () => {
+      _pool.done()
+      //console.log('-i', --i)
+    }, 
+    () => {
+      _pool.done()
+      //console.log('-i', --i)
+    } )
 }
 
 Pool.prototype._stream = function(text, value, options) {
@@ -233,8 +267,14 @@ Pool.prototype._stream = function(text, value, options) {
     return _stream.call(this, pool.client, text, value, options);
   }).do( 
     () => null, 
-    () => _pool.done(), 
-    () => _pool.done() )
+    () => {
+      _pool.done()
+      //console.log('-i', --i)
+    }, 
+    () => {
+      _pool.done()
+      //console.log('-i', --i)
+    } )
 }
 
 /**

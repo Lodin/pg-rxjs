@@ -101,7 +101,7 @@ describe('## pg-rxjs', () => {
           assert.equal(result.rowCount, 1)
           assert.equal(result.rows[0].count, 4)
           done()
-        }, err => assert.fail('there should be no err', err))
+        }, err => done(err))
     })
 
      it('query transaction invalid function query', (done) => {
@@ -302,5 +302,5 @@ describe('## pg-rxjs', () => {
       console.timeEnd('bench client')
       client.end()
     })
-  })
+  })/**/
 })
