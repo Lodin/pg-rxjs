@@ -3,7 +3,7 @@
 const Rx = global.Rx || require('rx');
 const Rxo = Rx.Observable;
 const QueryStream = require('pg-query-stream')
-const pg = require('pg')
+//const pg = require('pg');
 const slice = [].slice
 const deasync = require('deasync')
 const _ = require('lodash')
@@ -12,8 +12,7 @@ let QI = 0; // debug query index
 
 module.exports = {
   Client,
-  Pool,
-  pg
+  Pool
 }
 
 function _stream(_client, text, value, options) {
@@ -35,15 +34,15 @@ function _stream(_client, text, value, options) {
   source.on('data', onData)
 
   function onData(x) {
-    stream.onNext(x)
+    stream.onNext(x);
   }
 
   function onError(err) {
-    stream.onError(err)
-    cleanup()
+    stream.onError(err);
+    cleanup();
   }
 
-  function cleanup() {
+  function cleanup(x) {
     source.removeListener('data', onData)
     source.removeListener('end', cleanup)
     source.removeListener('error', onError)
@@ -189,9 +188,14 @@ function Pool(config, opts) {
 }
 
 Pool.prototype._connect = function() {
+  if(!this.pg) {
+    this.pg = require('pg');
+    if(!!this.opts.native) this.pg = this.pg.native;
+  }
+
   return Rxo.create((obs) => {
     let _done = x=>x;
-    pg.connect(this.config, (error, client, done) => {
+    this.pg.connect(this.config, (error, client, done) => {
       _done = done;
       //console.log(error, client, done)
       if (error) {
@@ -240,6 +244,9 @@ function Client(config, opts) {
   if (!(this instanceof Client)) {
     return new Client(config, opts)
   }
+
+  let pg = require('pg');
+  if(!!opts.native) pg = pg.native;
 
   const _client = this._client = new pg.Client(config)
   let connected = false

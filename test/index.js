@@ -31,7 +31,7 @@ describe('## pg-rxjs', () => {
     })
 
     it('query', (done) => {
-      pg.Pool(config, {debug: false})
+      pg.Pool(config, {debug: false, native: true})
         .query('SELECT 1 AS count')
         .subscribe(result => {
           assert.equal(result.rowCount, 1)
@@ -70,7 +70,7 @@ describe('## pg-rxjs', () => {
     })
 
     it('query transaction', (done) => {
-      const pool = pg.Pool(config, {debug: false});
+      const pool = pg.Pool(config, {debug: false, native: false});
       const transaction = pool.transaction, 
             query = pool.query;
       transaction([
@@ -160,9 +160,10 @@ describe('## pg-rxjs', () => {
 
   describe('# Client', () => {
     let client, query, transaction;
+    console.time('bench client');
 
     it('new client', (done) => {
-      client = pg.Client(config, {debug: false}); // desync'ed connection
+      client = pg.Client(config, {debug: false, native: false}); // desync'ed connection
       query = client.query; // query method is bound to client
       transaction = client.transaction;
       done();
@@ -170,9 +171,16 @@ describe('## pg-rxjs', () => {
 
     it('invalid query', (done) => {
       query('invalid sql') // calling query without client context
-        .subscribeOnError((err) => {
-          assert.ok(err.message.startsWith('syntax error'))
+        .subscribe(
+        x=> {
+          done(x)
+        },
+        err => {
+          assert.ok(err.message.indexOf('syntax error') !== -1)
           done()
+        },
+        x => {
+          done('should not have completed');
         })
     })
 
@@ -246,12 +254,12 @@ describe('## pg-rxjs', () => {
       return client.stream('SELECT 10 AS count')
         .subscribe(data => {
           rows++
-          assert(rows === 1)
-          assert(data.count === 10)
+          assert.equal(rows, 1)
+          assert.equal(data.count, 10)
         },
         err => assert.fail('there should be no error', err),
         () => {
-          assert(rows === 1);
+          assert.equal(rows, 1);
           done();
         })
     })
@@ -268,7 +276,7 @@ describe('## pg-rxjs', () => {
         },
         err => assert.fail('there should be no error', err),
         () => {
-          assert(rows === 1);
+          assert.equal(rows, 1);
           done();
         })
     })
@@ -291,6 +299,7 @@ describe('## pg-rxjs', () => {
     })
 
     it('end', () => {
+      console.timeEnd('bench client')
       client.end()
     })
   })
