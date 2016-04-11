@@ -31,7 +31,7 @@ describe('## pg-rxjs', () => {
     })
 
     it('query', (done) => {
-      pg.Pool(config, {debug: false, native: true})
+      pg.Pool(config, {debug: false, native: false})
         .query('SELECT 1 AS count')
         .subscribe(result => {
           assert.equal(result.rowCount, 1)
