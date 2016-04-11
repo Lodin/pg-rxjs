@@ -53,7 +53,7 @@ function _stream(_client, text, value, options) {
   return stream.asObservable();
 }
 
-function _transaction(queryList) {
+function _transaction(queryList, client) {
   // Same as Client's version
   queryList = ['BEGIN'].concat(queryList);
   queryList.push('COMMIT');
@@ -183,8 +183,25 @@ function Pool(config, opts) {
           connect: this._connect.bind(this),
           query: this._query.bind(this), 
           stream: this._stream.bind(this),
-          transaction: _transaction.bind(this)
+          transaction: this.__transaction.bind(this), 
           }
+}
+
+Pool.prototype.__transaction = function(queryList) {
+  const args = slice.call(arguments);
+
+  if(this._pool) return _transaction.call(this, queryList, this._pool.client);
+  return this._connect().flatMap(pool => {
+    this._pool = pool;
+    return _transaction.call(this, pool.client, args);
+  }).do( 
+    () => null, 
+    () => { 
+      this._pool.done(); 
+      this._pool = null },
+    () => { 
+      this._pool.done(); 
+      this._pool = null })
 }
 
 Pool.prototype._connect = function() {
@@ -215,6 +232,10 @@ Pool.prototype._connect = function() {
 
 Pool.prototype._query = function() {
   const args = slice.call(arguments);
+
+  if(this._pool) {
+    return _query.call(this, this._pool.client, args);
+  }
 
   let _pool;
   return this._connect().flatMap(pool => {
