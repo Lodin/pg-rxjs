@@ -67,6 +67,8 @@ client.end()
 * [Transactions](https://github.com/brianc/node-postgres/wiki/Transactions) (\w auto-rollback)
 _supports only waterfall queuing_
 
+_Warning: Pool.transaction has a different API that is in the works._
+
 ```js
 var transaction = client.transaction; // btw, methods do not rely on 'this'
 var query = client.query;
