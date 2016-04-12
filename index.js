@@ -179,32 +179,23 @@ function Pool(config, opts) {
   this.config = config;
   this.opts = opts || {};
 
-  return { 
-          connect: this._connect.bind(this),
-          query: this._query.bind(this), 
-          stream: this._stream.bind(this),
-          transaction: this.__transaction.bind(this), 
-          }
+  const r = { 
+          connect: this._connect.bind(this)
+          , query: this._query.bind(this) 
+          , stream: this._stream.bind(this)
+          , transaction: this.__transaction.bind(this), 
+         }
+
+  return r;
 }
 
-Pool.prototype.__transaction = function(queryList) {
-  const args = slice.call(arguments);
+Pool.prototype.__transaction = function(x) {
+  if(x) throw new Error('Invalid use of Pools transacion: method returns function and query method');
+  this.tclient = this.tclient || Client(this.config, this.opts); 
 
-  if(this._pool) return _transaction.call(this, queryList, this._pool.client);
-
-  return this._connect().flatMap(pool => {
-    this._pool = pool;
-    return _transaction.call(this, queryList, pool.client);
-  }).do( 
-    () => null, 
-    () => { 
-      //console.log('-ii', --i);
-      this._pool.done();
-      this._pool = null },
-    () => {
-      //console.log('-ii', --i);
-      this._pool.done();
-      this._pool = null })
+  var execute = (x) => this.tclient.transaction(x);
+  execute.query = this.tclient.query;
+  return execute;
 }
 
 Pool.prototype._connect = function() {
@@ -212,13 +203,6 @@ Pool.prototype._connect = function() {
     this.pg = require('pg');
     if(!!this.opts.native) this.pg = this.pg.native;
   }
-
-  if(this._pool) { // transaction being used
-    //console.log('=ii', i)
-    return Rxo.just(this._pool);
-  }
-
-  //console.log('+i', ++i)
 
   return Rxo.create((obs) => {
     let _done = x=>x;
@@ -231,7 +215,7 @@ Pool.prototype._connect = function() {
         obs.onCompleted();
         return
       }
-
+      
       obs.onNext({ client, done })
       obs.onCompleted();
     })
@@ -242,7 +226,6 @@ Pool.prototype._connect = function() {
 
 Pool.prototype._query = function() {
   const args = slice.call(arguments);
-
   let _pool;
   return this._connect().flatMap(pool => {
     _pool = pool;
@@ -252,11 +235,9 @@ Pool.prototype._query = function() {
     () => null, 
     () => {
       _pool.done()
-      //console.log('-i', --i)
     }, 
     () => {
       _pool.done()
-      //console.log('-i', --i)
     } )
 }
 
@@ -269,11 +250,9 @@ Pool.prototype._stream = function(text, value, options) {
     () => null, 
     () => {
       _pool.done()
-      //console.log('-i', --i)
     }, 
     () => {
       _pool.done()
-      //console.log('-i', --i)
     } )
 }
 

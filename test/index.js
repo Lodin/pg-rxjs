@@ -71,8 +71,8 @@ describe('## pg-rxjs', () => {
 
     it('query transaction', (done) => {
       const pool = pg.Pool(config, {debug: false, native: false});
-      const transaction = pool.transaction, 
-            query = pool.query;
+      const transaction = pool.transaction();
+      const query = transaction.query;
       transaction([
         query('SELECT 2 as count').flatMap(x=> {
           //console.log('x',x)
@@ -106,8 +106,8 @@ describe('## pg-rxjs', () => {
 
      it('query transaction invalid function query', (done) => {
       const pool = pg.Pool(config, {debug: false});
-      const transaction = pool.transaction, 
-            query = pool.query;
+      const transaction = pool.transaction();
+      const query = transaction.query;
 
       transaction([
         query('SELECT 2 as count'),
@@ -156,6 +156,7 @@ describe('## pg-rxjs', () => {
             done()
           })
     })
+
   })
 
   describe('# Client', () => {
