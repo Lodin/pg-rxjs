@@ -1,6 +1,6 @@
 'use strict'
 
-const Rx = global.Rx || require('rx');
+const Rx = require('rxjs/Rx');
 const Rxo = Rx.Observable;
 const QueryStream = require('pg-query-stream')
 //const pg = require('pg');
@@ -34,11 +34,11 @@ function _stream(_client, text, value, options) {
   source.on('data', onData)
 
   function onData(x) {
-    stream.onNext(x);
+    stream.next(x);
   }
 
   function onError(err) {
-    stream.onError(err);
+    stream.error(err);
     cleanup();
   }
 
@@ -47,7 +47,7 @@ function _stream(_client, text, value, options) {
     source.removeListener('end', cleanup)
     source.removeListener('error', onError)
     source.removeListener('close', cleanup)
-    stream.onCompleted()
+    stream.complete()
   }
 
   return stream.asObservable();
@@ -62,7 +62,9 @@ function _transaction(queryList, client) {
   //if(this.opts.debug) console.log("starting transaction");
 
   let lastResponse = null;
-  return Rxo.fromArray(queryList).reduce((acc, x, i) => {
+  let i = -1;
+  return Rxo.from(queryList).reduce((acc, x) => {
+    i++;
     if(this.opts.debug) {
       if(typeof x === 'function')
         console.log('transaction ' + i + ': function');
@@ -70,11 +72,12 @@ function _transaction(queryList, client) {
       else console.log('transaction ' + i + ':', JSON.stringify(x));
     }
 
-    return acc.first().concatMap( prev => {
+    if(!acc) return this._query(x);
+    return acc.take(1).concatMap( prev => {
       if(i < queryList.length && prev) {
         lastResponse = prev;
       }
-      if(!x) return Rxo.just(null);
+      if(!x) return Rxo.of(null);
 
       if(typeof x === 'string') return this._query(x);
       else if(x.subscribe) return x;
@@ -86,15 +89,18 @@ function _transaction(queryList, client) {
       }
       else return this._query(x); // klex
     })
-  }, Rxo.just(null))
-  .merge(1)
+  }, null)
+  .mergeAll(1)
+  //
   .catch( x => {
     lastResponse = null;
     var err = JSON.stringify(x);
     if(this.opts.debug) 
       console.log('Transaction error:', x.message, err);
     return this._query('ROLLBACK').flatMap(_=> Rxo.throw( {message:x.message, detail:err} ));
-  }).first().map(x => lastResponse); // use last response before commit
+  })
+  .take(1)
+  .map(x => lastResponse) // use last response before commit
 }
 
 function _query(client, args) {
@@ -120,7 +126,7 @@ function _query(client, args) {
   QI++;
 
   client.rxquery =
-   client.rxquery || Rxo.fromNodeCallback(client.query, client);
+   client.rxquery || Rxo.bindNodeCallback(client.query.bind(client));
 
   const ret = Rxo.defer(x => { 
       if(this.opts.debug) console.log(QI + ' query:', args);
@@ -211,16 +217,16 @@ Pool.prototype._connect = function() {
       //console.log(error, client, done)
       if (error) {
         done(error)
-        obs.onError(error) // Todo: Error obj needed?
-        obs.onCompleted();
+        obs.error(error) // Todo: Error obj needed?
+        obs.complete();
         return
       }
       
-      obs.onNext({ client, done })
-      obs.onCompleted();
+      obs.next({ client, done })
+      obs.complete();
     })
 
-    return dispose=>_done();
+    ////return dispose=>_done();
   });
 }
 
@@ -234,7 +240,7 @@ Pool.prototype._query = function() {
   }).do( 
     () => null, 
     () => {
-      _pool.done()
+      if(_pool) _pool.done()
     }, 
     () => {
       _pool.done()
@@ -249,7 +255,7 @@ Pool.prototype._stream = function(text, value, options) {
   }).do( 
     () => null, 
     () => {
-      _pool.done()
+      if(_pool) _pool.done()
     }, 
     () => {
       _pool.done()

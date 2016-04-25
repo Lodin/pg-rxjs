@@ -12,19 +12,20 @@ const config = 'postgres://hx:hx@localhost/hx'
 describe('## pg-rxjs', () => {
   describe('# Pool', () => {
 
-    it('invalid db uri', done => {
+    it('invalid db uri', function(done) {
       pg.Pool('postgres://notpassword:hx@localhost:3333/hx')
         .connect()
-        .subscribeOnError(err => {
+        .subscribe(x=>x, err => {
           assert.ok(err.code, 'ECONNREFUSED')
           done()
         })
     })
 
-    it('invalid query', (done) => {
+    it('invalid query', function(done) {
       pg.Pool(config, {debug: false})
         .query('invalid sql')
-        .subscribeOnError(err => {
+        .subscribe(x=>x, err => {
+          //console.log('err', err, err ? err.stack :'')
           assert.ok(err.message.startsWith('syntax error'))
           done()
         })
@@ -98,6 +99,7 @@ describe('## pg-rxjs', () => {
         }
         ])
         .subscribe(result => {
+          //console.log('result', result)
           assert.equal(result.rowCount, 1)
           assert.equal(result.rows[0].count, 4)
           done()
