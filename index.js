@@ -5,7 +5,7 @@ const Rxo = Rx.Observable;
 const QueryStream = require('pg-query-stream')
 //const pg = require('pg');
 const slice = [].slice
-const deasync = require('deasync')
+//const deasync = require('deasync')
 const _ = require('lodash')
 const moment = require('moment')
 let QI = 0; // debug query index
@@ -282,8 +282,8 @@ function Client(config, opts) {
     }
     connected = true
   })
-  deasync.loopWhile(function(){ return !connected });
-
+  //deasync.loopWhile(function(){ return !connected });
+  
   this.opts = opts || {};
 
   return { query: this._query.bind(this), 

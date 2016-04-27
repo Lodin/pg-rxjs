@@ -28,7 +28,6 @@
     "pg": "^4"
   },
   "dependencies": {
-    "deasync": "^0.1.4",
     "istanbul": "^0.4.3",
     "lodash": "^4.9.0",
     "moment": "^2.12.0",
