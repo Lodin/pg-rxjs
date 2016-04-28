@@ -34,6 +34,6 @@
     "pg": "ignitenet-martynas/node-postgres#master",
     "pg-query-stream": "1",
     "rx": "^4.1.0",
-    "rxjs": "^5.0.0-beta.6"
+    "rxjs": "^5.0.0-beta.7"
   }
 }
